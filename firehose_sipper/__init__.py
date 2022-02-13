@@ -60,11 +60,13 @@ def list_files(s3, bucket, prefix):
 
 
 def stream(bucket, key, s3, use_gzip):
-    use_gzip = key.endswith(".gz") if use_gzip == GZIP_AUTO else use_gzip
-    print(use_gzip)
     data = s3.get_object(Key=key, Bucket=bucket)
+    if use_gzip == GZIP_AUTO:
+        use_gzip = data.get("ContentEncoding") == "gzip"
+
     if use_gzip:
         return gzip.open(data["Body"], mode="rt")
+
     return io.TextIOWrapper(data["Body"])
 
 
