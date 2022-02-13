@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "firehose-sipper"
-version = "0.1.0"
+version = "0.2.0"
 description = "Parses firehosed json from S3"
 authors = ["Bob Gregory <bob@codefiend.co.uk>"]
 license = "MIT"
