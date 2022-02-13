@@ -1,3 +1,4 @@
+import gzip
 import io
 import json
 import os
@@ -57,3 +58,53 @@ def test_when_reading_a_prefix():
     result = list(sip(bucket=BUCKET, prefix=PREFIX, s3=S3))
 
     assert len(result) == 200
+
+
+def test_when_inferring_gzip_from_the_key():
+    num = 100
+
+    key = f"{PREFIX}/when_inferring_gzip.gz"
+    data = io.BytesIO()
+
+    with gzip.open(data, mode='w') as zipped:
+        for entry in schema.create(num):
+            zipped.write(json.dumps(entry).encode("utf8"))
+    data.seek(0)
+
+    S3.put_object(Bucket=BUCKET, Key=key, Body=data)
+    result = list(sip(bucket=BUCKET, key=key, s3=S3))
+
+    assert len(result) == num
+
+
+def test_when_setting_gzip_explicitly_on_a_file_with_no_gz_extension():
+    num = 10
+
+    key = f"{PREFIX}/when_specifying_gzip.exe"
+    data = io.BytesIO()
+
+    with gzip.open(data, mode='w') as zipped:
+        for entry in schema.create(num):
+            zipped.write(json.dumps(entry).encode("utf8"))
+    data.seek(0)
+
+    S3.put_object(Bucket=BUCKET, Key=key, Body=data)
+    result = list(sip(bucket=BUCKET, key=key, s3=S3, gzip=True))
+
+    assert len(result) == num
+
+
+def test_when_negating_gzip_explicitly_on_a_file_with_a_gz_extension():
+    num = 10
+
+    key = f"{PREFIX}/when_specifying_gzip.gz"
+    data = io.BytesIO()
+
+    for entry in schema.create(num):
+        data.write(json.dumps(entry).encode('utf8'))
+    data.seek(0)
+
+    S3.put_object(Bucket=BUCKET, Key=key, Body=data)
+    result = list(sip(bucket=BUCKET, key=key, s3=S3, gzip=False))
+
+    assert len(result) == num
