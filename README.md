@@ -29,3 +29,18 @@ The library respects `gzip` encoding automatically, so you can point it at a buc
 ## How do I install it?
 
 `pip install firehose-sipper`
+
+## I have concatenated json NOT in S3
+
+No problem, friend. The `object_stream` generator reads concatenated json from arbitrary text-mode file-like objects.
+
+``` python
+from io import StringIO
+from firehose_sipper import object_stream
+
+data = StringIO(3 * json.dumps({"A":123, "B": 234}))
+
+result = list(object_stream(data))
+
+assert len(result) === 3
+```
