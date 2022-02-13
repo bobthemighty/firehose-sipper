@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "firehose-sipper"
+version = "0.1.0"
+description = "Parses firehosed json from S3"
+authors = ["Bob Gregory <bob@codefiend.co.uk>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+boto3 = "^1.20.54"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0.1"
+mimesis = "^5.3.0"
+black = "^22.1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
