@@ -1,8 +1,11 @@
+import gzip
 import io
 from json import scanner
 from json.decoder import JSONDecoder, JSONDecodeError
 
 import boto3
+
+GZIP_AUTO = object()
 
 
 def object_stream(f, decoder=None, bufsize=64 * 1024):
@@ -56,7 +59,16 @@ def list_files(s3, bucket, prefix):
             return
 
 
-def sip(*, bucket=None, prefix=None, key=None, s3=None):
+def stream(bucket, key, s3, use_gzip):
+    use_gzip = key.endswith(".gz") if use_gzip == GZIP_AUTO else use_gzip
+    print(use_gzip)
+    data = s3.get_object(Key=key, Bucket=bucket)
+    if use_gzip:
+        return gzip.open(data["Body"], mode="rt")
+    return io.TextIOWrapper(data["Body"])
+
+
+def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO):
 
     if (key and prefix) or not (key or prefix):
         raise ValueError("You must provide either a key or prefix")
@@ -64,12 +76,8 @@ def sip(*, bucket=None, prefix=None, key=None, s3=None):
     s3 = s3 or boto3.client("s3")
 
     if key:
-        data = s3.get_object(Key=key, Bucket=bucket)
-        stream = io.TextIOWrapper(data["Body"])
-        yield from object_stream(stream)
+        yield from object_stream(stream(bucket, key, s3, gzip))
 
     else:
         for key in list_files(s3, bucket, prefix):
-            data = s3.get_object(Key=key, Bucket=bucket)
-            stream = io.TextIOWrapper(data["Body"])
-            yield from object_stream(stream)
+            yield from object_stream(stream(bucket, key, s3, gzip))
