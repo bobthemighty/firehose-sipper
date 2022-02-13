@@ -25,3 +25,7 @@ for entry in firehose_sipper.sip(bucket=some_bucket, prefix=some_prefix):
 ```
 
 The library respects `gzip` encoding automatically, so you can point it at a bucket and start processing.
+
+## How do I install it?
+
+`pip install firehose-sipper`
