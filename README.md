@@ -16,6 +16,7 @@ import firehose_sipper
 # Read a single file out of S3
 
 for entry in firehose_sipper.sip(bucket=some_bucket, key=some_key):
+    # Each entry is a dict, parsed from a json object
     print(entry)
     
 # or go nuts and read all objects under a prefix
