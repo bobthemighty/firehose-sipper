@@ -9,6 +9,22 @@ GZIP_AUTO = object()
 
 
 def object_stream(f, decoder=None, bufsize=64 * 1024):
+    """Reads a file-like object and returns a generator of decoded json objects
+
+    This function takes a file-like object in text-mode and parses json objects
+    one at a time, yielding them in a generator. If the file is truncated, or
+    otherwise malformed, we raise a JSONDecodeError.
+
+    Args:
+        f: File-like object containing json objects
+        decoder: Optional JSONDecoder to customise json handling
+        bufsize: Number of bytes to read at once from the file
+
+    Example:
+        >>> for object in object_stream(f):
+        >>>     print(object)
+
+    """
     idx = 0
     data = ""
     decoder = decoder or JSONDecoder()
@@ -20,8 +36,11 @@ def object_stream(f, decoder=None, bufsize=64 * 1024):
         data = data[idx:]
 
         if not data and not read:
+            # No data and nothing new from the stream? End of file
             return
         if data and not read:
+            # unparsed data, but nothing new on the stream?
+            # The file is truncated
             raise JSONDecodeError("Truncated JSON", data, len(data))
 
         data += read
@@ -34,6 +53,9 @@ def object_stream(f, decoder=None, bufsize=64 * 1024):
             except StopIteration:
                 break
             except JSONDecodeError:
+                # If there's an error at index 0, then we don't have
+                # valid JSON, otherwise, this is probably half an object
+                # and the rest of the data will come in the next chunk.
                 if idx == 0:
                     raise
                 break
@@ -70,7 +92,31 @@ def stream(bucket, key, s3, use_gzip):
     return io.TextIOWrapper(data["Body"])
 
 
-def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO):
+def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO, decoder=None):
+    """Reads a file, or set of files, from S3 and yields decoded JSON objects
+
+    Args:
+        bucket: The name of the S3 bucket to read from
+        prefix: Optional prefix for listing files
+        key: The key of a single file to parse
+
+        s3: An optional instance of boto3.client('s3') for querying data
+        gzip: Optional boolean to force reading files as gzip-encoded
+        decoder: Optional JSONDecoder for customising JSON processing
+
+    Examples:
+
+        Read a single S3 object
+
+        >>> for object in sip(bucket='my-bucket', key='some-object'):
+        >>>     print(object)
+
+
+        Read all objects under a prefix
+
+        >>> for object in sip(bucket='my-bucket', prefix='some-prefix/'):
+        >>>     print(object)
+    """
 
     if (key and prefix) or not (key or prefix):
         raise ValueError("You must provide either a key or prefix")
@@ -78,8 +124,8 @@ def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO):
     s3 = s3 or boto3.client("s3")
 
     if key:
-        yield from object_stream(stream(bucket, key, s3, gzip))
+        yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)
 
     else:
         for key in list_files(s3, bucket, prefix):
-            yield from object_stream(stream(bucket, key, s3, gzip))
+            yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)

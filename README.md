@@ -44,3 +44,15 @@ result = list(object_stream(data))
 
 assert len(result) === 3
 ```
+
+## I need to customise the handling of JSON
+
+The `sip` function takes an optional JSONDecoder so that you can deserialise custom types, or intercept object creation.
+
+```python
+for entry in sip(bucket=..., prefix=..., decoder=my_custom_decoder):
+    ...
+```
+
+
+
