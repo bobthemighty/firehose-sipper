@@ -1,5 +1,8 @@
+import tempfile
+import zipfile
 import gzip
 import io
+import os
 from json import scanner
 from json.decoder import JSONDecoder, JSONDecodeError
 
@@ -92,6 +95,35 @@ def stream(bucket, key, s3, use_gzip):
     return io.TextIOWrapper(data["Body"])
 
 
+def sip_zip(bucket=None, key=None, s3=None, decoder=None):
+    """Reads a zipped file from S3 and yields decoded JSON objects
+
+    This function downloads the s3 file, unpacks it, reads the extracted files
+    sequentially, in text-mode and parses json objects one at a time, yielding
+    them in a generator. If s3 file is not a valid zip file, zipfile module
+    will raise an exception.
+
+    Args:
+        bucket: The name of the S3 bucket to read from
+        key: The key of a single zipped file
+        s3: An optional instance of boto3.client('s3') for querying data
+        decoder: Optional JSONDecoder for customising JSON processing
+    """
+    if not (key and bucket):
+        raise ValueError("You must provide a bucket and a key")
+
+    s3 = s3 or boto3.client("s3")
+
+    with tempfile.TemporaryDirectory() as dname:
+        filename = key.split('/')[-1]
+        with open(os.path.join(dname, filename), 'wb') as zf:
+            s3.download_fileobj(bucket, key, zf)
+        with zipfile.ZipFile(os.path.join(dname, filename), mode="r") as zf:
+            for fname in zf.namelist():
+                with zf.open(fname) as f:
+                    yield from object_stream(io.TextIOWrapper(f), decoder=decoder)
+
+
 def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO, decoder=None):
     """Reads a file, or set of files, from S3 and yields decoded JSON objects
 
@@ -124,8 +156,16 @@ def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO, decoder=
     s3 = s3 or boto3.client("s3")
 
     if key:
-        yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)
+        metadata = s3.head_object(Key=key, Bucket=bucket)
+        if metadata.get("ContentEncoding") == "zip":
+            yield from sip_zip(bucket=bucket, key=key, s3=s3, decoder=decoder)
+        else:
+            yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)
 
     else:
         for key in list_files(s3, bucket, prefix):
-            yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)
+            metadata = s3.head_object(Key=key, Bucket=bucket)
+            if metadata.get("ContentEncoding") == "zip":
+                yield from sip_zip(bucket=bucket, key=key, s3=s3, decoder=decoder)
+            else:
+                yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)
