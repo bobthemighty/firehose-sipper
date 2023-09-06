@@ -157,7 +157,10 @@ def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO, decoder=
 
     if key:
         metadata = s3.head_object(Key=key, Bucket=bucket)
-        if metadata.get("ContentEncoding") == "zip":
+        if gzip == GZIP_AUTO and (
+                metadata.get("ContentEncoding") == "zip" or
+                metadata.get("ContentType") == "application/zip"
+        ):
             yield from sip_zip(bucket=bucket, key=key, s3=s3, decoder=decoder)
         else:
             yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)
@@ -165,7 +168,10 @@ def sip(*, bucket=None, prefix=None, key=None, s3=None, gzip=GZIP_AUTO, decoder=
     else:
         for key in list_files(s3, bucket, prefix):
             metadata = s3.head_object(Key=key, Bucket=bucket)
-            if metadata.get("ContentEncoding") == "zip":
+            if gzip == GZIP_AUTO and (
+                    metadata.get("ContentEncoding") == "zip" or
+                    metadata.get("ContentType") == "application/zip"
+            ):
                 yield from sip_zip(bucket=bucket, key=key, s3=s3, decoder=decoder)
             else:
                 yield from object_stream(stream(bucket, key, s3, gzip), decoder=decoder)

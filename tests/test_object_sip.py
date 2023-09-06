@@ -1,3 +1,4 @@
+import zipfile
 import gzip
 import io
 import json
@@ -90,5 +91,23 @@ def test_when_setting_gzip_explicitly():
 
     S3.put_object(Bucket=BUCKET, Key=key, Body=data)
     result = list(sip(bucket=BUCKET, key=key, s3=S3, gzip=True))
+
+    assert len(result) == num
+
+
+def test_when_reading_a_zip():
+    num = 100
+
+    key = f"{PREFIX}/when_reading_zip.zip"
+    data = io.BytesIO()
+
+    with zipfile.ZipFile(data, mode="w") as zipped:
+        with zipped.open('data.txt', mode='w') as f:
+            for entry in schema.create(num):
+                f.write(json.dumps(entry).encode("utf8"))
+    data.seek(0)
+
+    S3.put_object(Bucket=BUCKET, Key=key, Body=data, ContentEncoding="zip")
+    result = list(sip(bucket=BUCKET, key=key, s3=S3))
 
     assert len(result) == num
